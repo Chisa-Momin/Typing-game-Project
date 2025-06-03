@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Type Melody</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 2rem;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: white;
+      text-align: center;
+      background: linear-gradient(to right, #1e3c72, #2a5298);
+      overflow-x: hidden;
+      position: relative;
+      min-height: 100vh;
+    }
+
+    /* Mountain Background */
+    body::before {
+      content: '';
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 200%;
+      height: 250px;
+      background: url('https://i.imgur.com/GxHh5Bv.png') repeat-x bottom;
+      background-size: contain;
+      animation: moveMountains 40s linear infinite;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    @keyframes moveMountains {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+
+    .container {
+      position: relative;
+      max-width: 1000px;
+      margin: 0 auto;
+      background-color: rgba(0, 0, 0, 0.6);
+      padding: 2rem;
+      border-radius: 20px;
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+      z-index: 1;
+    }
+
+    .race-track {
+      position: relative;
+      background: #444;
+      border: 2px dashed #fff;
+      height: 150px;
+      margin-bottom: 2rem;
+      overflow: hidden;
+      border-radius: 10px;
+      z-index: 1;
+    }
+
+    .car {
+      position: absolute;
+      width: 80px;
+      height: 40px;
+      border-radius: 10px;
+      transition: left 0.1s linear;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      font-weight: bold;
+      box-shadow: 0 0 15px rgba(0,0,0,0.7);
+      animation: bounce 0.4s ease infinite alternate;
+      z-index: 2;
+    }
+
+    @keyframes bounce {
+      from { transform: translateY(0); }
+      to { transform: translateY(-3px); }
+    }
+
+    .player {
+      background: green;
+      top: 30px;
+    }
+
+    .computer {
+      background: orange;
+      top: 90px;
+      color: black;
+    }
+
+    .sentence {
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      text-align: left;
+      word-break: break-word;
+      z-index: 2;
+      position: relative;
+    }
+
+    .char.correct {
+      color: green;
+    }
+
+    .char.incorrect {
+      color: red;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 1rem;
+      font-size: 1.2rem;
+      border: none;
+      border-radius: 10px;
+      outline: none;
+      margin-bottom: 1rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .controls {
+      margin-bottom: 1rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    select {
+      font-size: 1rem;
+      padding: 0.5rem;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Type Melody</h1>
+    <div class="controls">
+      <label for="timeSelect">Choose time:</label>
+      <select id="timeSelect">
+        <option value="15">15 seconds</option>
+        <option value="30" selected>30 seconds</option>
+        <option value="60">60 seconds</option>
+      </select>
+      <button onclick="startGame()">Game Start</button>
+    </div>
+
+    <div class="race-track">
+      <div class="car player" id="playerCar">Me</div>
+      <div class="car computer" id="computerCar">CPU</div>
+    </div>
+
+    <div id="sentence" class="sentence"></div>
+    <input type="text" id="input" placeholder="Start typing..." disabled />
+    <div class="score" id="score">Score: 0</div>
+    <div class="timer" id="timer">Time Left: 0s</div>
+  </div>
+
+  <script>
+    const sentences = [
+      `Sometimes when the night is quiet and the wind whistles softly, I remember the dreams I had as a child, full of stars, secrets, and magical lands beyond the clouds.`,
+      `In a world full of noise and rush, a peaceful moment under the golden sunlight can feel like a timeless treasure handed down by the universe itself.`,
+      `Though the path was long and filled with stones, every step taught me patience, resilience, and how to dance even when the sky rained endlessly.`
+    ];
+
+    const sentenceEl = document.getElementById('sentence');
+    const inputEl = document.getElementById('input');
+    const scoreEl = document.getElementById('score');
+    const timerEl = document.getElementById('timer');
+    const timeSelect = document.getElementById('timeSelect');
+    const playerCar = document.getElementById('playerCar');
+    const computerCar = document.getElementById('computerCar');
+
+    let score = 0;
+    let currentSentence = '';
+    let timeLeft = 0;
+    let timerInterval;
+    let computerProgress = 0;
+    let lastLength = 0;
+    let raceLength = 800;
+
+    const typeSound = new Audio("https://cdn.pixabay.com/audio/2022/03/15/audio_7e8694f8f4.mp3");
+    typeSound.volume = 0.4;
+
+    function getRandomSentence() {
+      const randomIndex = Math.floor(Math.random() * sentences.length);
+      return sentences[randomIndex];
+    }
+
+    function renderSentence() {
+      sentenceEl.innerHTML = '';
+      for (let char of currentSentence) {
+        const span = document.createElement('span');
+        span.textContent = char;
+        span.classList.add('char');
+        sentenceEl.appendChild(span);
+      }
+    }
+
+    function displaySentence() {
+      currentSentence = getRandomSentence();
+      renderSentence();
+      inputEl.value = '';
+      inputEl.disabled = false;
+      inputEl.focus();
+      lastLength = 0;
+    }
+
+    function startGame() {
+      score = 0;
+      computerProgress = 0;
+      playerCar.style.left = '0px';
+      computerCar.style.left = '0px';
+
+      scoreEl.textContent = 'Score: 0';
+      timeLeft = parseInt(timeSelect.value);
+      timerEl.textContent = `Time Left: ${timeLeft}s`;
+      inputEl.disabled = false;
+      displaySentence();
+      clearInterval(timerInterval);
+
+      typeSound.play().catch(() => {});
+
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        computerProgress += Math.random() * 25 + 15;
+        computerCar.style.left = Math.min(computerProgress, raceLength) + 'px';
+        timerEl.textContent = `Time Left: ${timeLeft}s`;
+
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          inputEl.disabled = true;
+          const playerPos = parseFloat(playerCar.style.left);
+          const computerPos = parseFloat(computerCar.style.left);
+          sentenceEl.textContent = playerPos > computerPos ? "You win!!!!" : "Computer wins!!!!";
+        }
+      }, 1000);
+    }
+
+    inputEl.addEventListener('input', () => {
+      const typed = inputEl.value;
+      const charSpans = sentenceEl.querySelectorAll('span');
+      let correctCount = 0;
+
+      if (typed.length > lastLength) {
+        typeSound.currentTime = 0;
+        typeSound.play().catch(() => {});
+      }
+      lastLength = typed.length;
+
+      charSpans.forEach((span, index) => {
+        if (typed[index] == null) {
+          span.classList.remove('correct', 'incorrect');
+        } else if (typed[index] === currentSentence[index]) {
+          span.classList.add('correct');
+          span.classList.remove('incorrect');
+          correctCount++;
+        } else {
+          span.classList.add('incorrect');
+          span.classList.remove('correct');
+        }
+      });
+
+      const progress = Math.min((correctCount / currentSentence.length) * raceLength, raceLength);
+      playerCar.style.left = progress + 'px';
+
+      if (typed === currentSentence) {
+        score++;
+        scoreEl.textContent = `Score: ${score}`;
+        displaySentence();
+      }
+    });
+  </script>
+</body>
+</html>
